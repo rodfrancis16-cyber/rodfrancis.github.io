@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="tl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Spin the Wheel</title>
+<style>
+  body{font-family:system-ui,-apple-system,Arial;display:flex;flex-direction:column;align-items:center;padding:18px;background:#f3f4f6;margin:0}
+  .wrap{max-width:520px;width:100%;text-align:center}
+  h1{margin:6px 0 12px;font-size:20px}
+  .pointer{width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:30px solid #e74c3c;margin:0 auto 6px}
+  canvas{width:100%;height:auto;max-width:480px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.08);background:#fff}
+  .controls{margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  button{padding:12px 16px;border-radius:10px;border:0;font-weight:700;font-size:16px;cursor:pointer;background:#2563eb;color:white;box-shadow:0 6px 12px rgba(37,99,235,.18)}
+  .result{margin-top:12px;font-weight:700;color:#111}
+  small{color:#666;display:block;margin-top:8px}
+  @media(min-width:600px){ h1{font-size:22px} }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Spin the Wheel</h1>
+    <div class="pointer" aria-hidden="true"></div>
+    <canvas id="wheel" width="500" height="500" role="img" aria-label="Spin the wheel"></canvas>
+    <div class="controls">
+      <button id="spinBtn">SPIN</button>
+      <button id="demoBtn">DEMO (Auto pick)</button>
+    </div>
+    <div class="result" id="result">Pindutin ang SPIN para maglaro.</div>
+    <small>I-edit ang mga options sa <code>options</code> array sa JavaScript section.</small>
+  </div>
+
+<script>
+/* ======= CONFIG — palitan ang mga option dito ======= */
+const options = ["10% OFF","25% OFF","50% OFF","Buy 1 Get 1","Free Merchandise"];
+/* =================================================== */
+
+const canvas = document.getElementById('wheel');
+const ctx = canvas.getContext('2d');
+const cx = canvas.width/2, cy = canvas.height/2;
+const radius = Math.min(cx, cy) - 12;
+let rotationDeg = 0;
+let spinning = false;
+
+function drawWheel(){
+  const n = options.length;
+  const slice = (2*Math.PI) / n;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  for(let i=0;i<n;i++){
+    const start = -Math.PI/2 + i*slice;
+    const end = start + slice;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,radius,start,end);
+    ctx.closePath();
+    ctx.fillStyle = `hsl(${i*360/n},65%,60%)`;
+    ctx.fill();
+    // text
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(start + slice/2);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#111";
+    ctx.font = `${Math.floor(radius*0.085)}px Arial`;
+    wrapText(ctx, options[i], radius - 12, 6);
+    ctx.restore();
+  }
+  // center circle
+  ctx.beginPath();
+  ctx.arc(cx,cy,40,0,Math.PI*2);
+  ctx.fillStyle="#fff";
+  ctx.fill();
+  ctx.lineWidth=3;
+  ctx.strokeStyle="#e6e6e6";
+  ctx.stroke();
+}
+
+function wrapText(context, text, x, y) {
+  context.fillText(text, x, y);
+}
+
+drawWheel();
+
+function spinToTarget(targetIndex){
+  if(spinning) return;
+  spinning = true;
+  const n = options.length;
+  const sliceDeg = 360 / n;
+  const targetCenter = targetIndex * sliceDeg + sliceDeg/2;
+  const targetAngle = (360 - targetCenter) % 360;
+  const extraSpins = 5 + Math.floor(Math.random()*3);
+  const finalRotation = extraSpins*360 + targetAngle;
+  animateRotation(finalRotation, 4200 + extraSpins*200, ()=> {
+    spinning = false;
+    showResult(targetIndex);
+  });
+  canvas._last = { index: targetIndex, label: options[targetIndex] };
+}
+
+function animateRotation(finalDeg, duration, cb){
+  const start = performance.now();
+  const initial = rotationDeg % 360;
+  const delta = finalDeg - initial;
+  function easeOutCubic(t){ return 1 - Math.pow(1-t,3); }
+  function frame(now){
+    const elapsed = now - start;
+    const t = Math.min(1, elapsed / duration);
+    rotationDeg = initial + delta * easeOutCubic(t);
+    canvas.style.transform = `rotate(${rotationDeg}deg)`;
+    if(t < 1) requestAnimationFrame(frame);
+    else { if(cb) cb(); }
+  }
+  requestAnimationFrame(frame);
+}
+
+function showResult(index){
+  const res = canvas._last;
+  const el = document.getElementById('result');
+  if(res) el.textContent = `Napanalunan: ${res.label}`;
+  if(navigator.vibrate) navigator.vibrate([120,40,120]);
+}
+
+document.getElementById('spinBtn').addEventListener('click', ()=> {
+  if(spinning) return;
+  const rnd = Math.floor(Math.random()*options.length);
+  spinToTarget(rnd);
+});
+
+document.getElementById('demoBtn').addEventListener('click', ()=> {
+  if(spinning) return;
+  spinToTarget(0);
+});
+
+canvas.addEventListener('click', ()=> document.getElementById('spinBtn').click());
+</script>
+</body>
+</html>
